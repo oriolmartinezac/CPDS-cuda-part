@@ -131,9 +131,9 @@ int main( int argc, char *argv[] ) {
     int Grid_Dim, Block_Dim;	// Grid and Block structure values
     if (strcmp(argv[2], "-t")==0) {
             Block_Dim = atoi(argv[3]);
-            Grid_Dim = np/Block_Dim + ((np%Block_Dim)!=0);;
+            Grid_Dim = np/Block_Dim + ((np%Block_Dim)!=0);
     	    if ((Block_Dim*Block_Dim) > 512) {
-        	printf("Error -- too many threads in block, try again\n");
+        	   printf("Error -- too many threads in block, try again\n");
         	return 1;
     	    }
     }
@@ -227,11 +227,13 @@ int main( int argc, char *argv[] ) {
     iter = 0;
     while(1) {
         gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, np);
-        cudaThreadSynchronize();                        // wait for all threads to complete
+        cudaThreadSynchronize(); // wait for all threads to complete
 
         // TODO: residual is computed on host, we need to get from GPU values computed in u and uhelp
         //...
-      	residual = cpu_residual (param.u, param.uhelp, np, np);
+        cudaMemcpy(u, dev_u, sizex*sizey*sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(uhelp, dev_uhelp, sizex*sizey*sizeof(float), cudaMemcpyDeviceToHost);
+        residual = cpu_residual (param.u, param.uhelp, np, np);
 
       	float * tmp = dev_u;
       	dev_u = dev_uhelp;
