@@ -17,7 +17,7 @@ typedef struct {
     int algorithm;          // 0=>Jacobi, 1=>Gauss
 
     unsigned visres;        // visualization resolution
-  
+
     float *u, *uhelp;
     float *uvis;
 
@@ -44,8 +44,8 @@ __global__ void gpu_Heat (float *h, float *g, int N);
 float cpu_residual (float *u, float *utmp, unsigned sizex, unsigned sizey)
 {
     float diff, sum=0.0;
-  
-    for (int i=1; i<sizex-1; i++) 
+
+    for (int i=1; i<sizex-1; i++)
         for (int j=1; j<sizey-1; j++) {
             diff = utmp[i*sizey+j] - u[i*sizey + j];
             sum += diff * diff;
@@ -57,14 +57,14 @@ float cpu_jacobi (float *u, float *utmp, unsigned sizex, unsigned sizey)
 {
     float diff, sum=0.0;
     int nbx, bx, nby, by;
-  
+
     nbx = NB;
     bx = sizex/nbx;
     nby = NB;
     by = sizey/nby;
     for (int ii=0; ii<nbx; ii++)
-        for (int jj=0; jj<nby; jj++) 
-            for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++) 
+        for (int jj=0; jj<nby; jj++)
+            for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
                 for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
 	            utmp[i*sizey+j]= 0.25 * (u[ i*sizey     + (j-1) ]+  // left
 					     u[ i*sizey     + (j+1) ]+  // right
@@ -99,9 +99,9 @@ int main( int argc, char *argv[] ) {
 
     // check input file
     if( !(infile=fopen(argv[1], "r"))  ) {
-	fprintf(stderr, 
+	fprintf(stderr,
 		"\nError: Cannot open \"%s\" for reading.\n\n", argv[1]);
-      
+
 	usage(argv[0]);
 	return 1;
     }
@@ -110,8 +110,8 @@ int main( int argc, char *argv[] ) {
     resfilename="heat.ppm";
 
     if( !(resfile=fopen(resfilename, "w")) ) {
-	fprintf(stderr, 
-		"\nError: Cannot open \"%s\" for writing.\n\n", 
+	fprintf(stderr,
+		"\nError: Cannot open \"%s\" for writing.\n\n",
 		resfilename);
 	usage(argv[0]);
 	return 1;
@@ -188,7 +188,7 @@ int main( int argc, char *argv[] ) {
     float flop = iter * 11.0 * param.resolution * param.resolution;
 
     fprintf(stdout, "Time on CPU in ms.= %f ", elapsed_time_ms);
-    fprintf(stdout, "(%3.3f GFlop => %6.2f MFlop/s)\n", 
+    fprintf(stdout, "(%3.3f GFlop => %6.2f MFlop/s)\n",
 	    flop/1000000000.0,
 	    flop/elapsed_time_ms/1000);
     fprintf(stdout, "Convergence to residual=%f: %d iterations\n", residual, iter);
@@ -207,7 +207,7 @@ int main( int argc, char *argv[] ) {
 
     dim3 Grid(Grid_Dim, Grid_Dim);
     dim3 Block(Block_Dim, Block_Dim);
-    
+
     // starting time
     cudaEventRecord( start, 0 );
     cudaEventSynchronize( start );
@@ -217,16 +217,18 @@ int main( int argc, char *argv[] ) {
     // TODO: Allocation on GPU for matrices u and uhelp
     //...
 	cudaMalloc((void **)&dev_u, sizex*sizey*sizeof(float));
-	cudaMalloc((void **)&dev_uhelp, *sizeof(float));
+	cudaMalloc((void **)&dev_uhelp, sizex*sizey*sizeof(float));
 
     // TODO: Copy initial values in u and uhelp from host to GPU
     //...
+    cudaMemcpy(dev_u, u, sizex*sizey*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_uhelp, uhelp, sizex*sizey*sizeof(float), cudaMemcpyHostToDevice);
 
     iter = 0;
     while(1) {
         gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, np);
         cudaThreadSynchronize();                        // wait for all threads to complete
-
+//
         // TODO: residual is computed on host, we need to get from GPU values computed in u and uhelp
         //...
 	residual = cpu_residual (param.u, param.uhelp, np, np);
@@ -246,16 +248,21 @@ int main( int argc, char *argv[] ) {
 
     // TODO: get result matrix from GPU
     //...
+    cudaMemcpy(u, dev_u, sizex*sizey*sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(uhelp, dev_uhelp, sizex*sizey*sizeof(float), cudaMemcpyDeviceToHost);
+
 
     // TODO: free memory used in GPU
     //...
+    cudaFree(*dev_u);
+    cudaFree(*dev_uhelp);
 
     cudaEventRecord( stop, 0 );     // instrument code to measue end time
     cudaEventSynchronize( stop );
     cudaEventElapsedTime( &elapsed_time_ms, start, stop );
 
     fprintf(stdout, "\nTime on GPU in ms. = %f ", elapsed_time_ms);
-    fprintf(stdout, "(%3.3f GFlop => %6.2f MFlop/s)\n", 
+    fprintf(stdout, "(%3.3f GFlop => %6.2f MFlop/s)\n",
 	    flop/1000000000.0,
 	    flop/elapsed_time_ms/1000);
     fprintf(stdout, "Convergence to residual=%f: %d iterations\n", residual, iter);
@@ -266,9 +273,9 @@ int main( int argc, char *argv[] ) {
     // for plot...
     coarsen( param.u, np, np,
 	     param.uvis, param.visres+2, param.visres+2 );
-  
-    write_image( resfile, param.uvis,  
-		 param.visres+2, 
+
+    write_image( resfile, param.uvis,
+		 param.visres+2,
 		 param.visres+2 );
 
     finalize( &param );
@@ -290,7 +297,7 @@ int initialize( algoparam_t *param )
 
     // total number of points (including border)
     const int np = param->resolution + 2;
-  
+
     //
     // allocate memory
     //
@@ -299,7 +306,7 @@ int initialize( algoparam_t *param )
     (param->uvis)  = (float*)calloc( sizeof(float),
 				      (param->visres+2) *
 				      (param->visres+2) );
-  
+
 
     if( !(param->u) || !(param->uhelp) || !(param->uvis) )
     {
@@ -312,10 +319,10 @@ int initialize( algoparam_t *param )
 	/* top row */
 	for( j=0; j<np; j++ )
 	{
-	    dist = sqrt( pow((float)j/(float)(np-1) - 
+	    dist = sqrt( pow((float)j/(float)(np-1) -
 			     param->heatsrcs[i].posx, 2)+
 			 pow(param->heatsrcs[i].posy, 2));
-	  
+
 	    if( dist <= param->heatsrcs[i].range )
 	    {
 		(param->u)[j] +=
@@ -324,46 +331,46 @@ int initialize( algoparam_t *param )
 		    param->heatsrcs[i].temp;
 	    }
 	}
-      
+
 	/* bottom row */
 	for( j=0; j<np; j++ )
 	{
-	    dist = sqrt( pow((float)j/(float)(np-1) - 
+	    dist = sqrt( pow((float)j/(float)(np-1) -
 			     param->heatsrcs[i].posx, 2)+
 			 pow(1-param->heatsrcs[i].posy, 2));
-	  
+
 	    if( dist <= param->heatsrcs[i].range )
 	    {
 		(param->u)[(np-1)*np+j]+=
-		    (param->heatsrcs[i].range-dist) / 
-		    param->heatsrcs[i].range * 
-		    param->heatsrcs[i].temp;
-	    }
-	}
-      
-	/* leftmost column */
-	for( j=1; j<np-1; j++ )
-	{
-	    dist = sqrt( pow(param->heatsrcs[i].posx, 2)+
-			 pow((float)j/(float)(np-1) - 
-			     param->heatsrcs[i].posy, 2)); 
-	  
-	    if( dist <= param->heatsrcs[i].range )
-	    {
-		(param->u)[ j*np ]+=
-		    (param->heatsrcs[i].range-dist) / 
+		    (param->heatsrcs[i].range-dist) /
 		    param->heatsrcs[i].range *
 		    param->heatsrcs[i].temp;
 	    }
 	}
-      
+
+	/* leftmost column */
+	for( j=1; j<np-1; j++ )
+	{
+	    dist = sqrt( pow(param->heatsrcs[i].posx, 2)+
+			 pow((float)j/(float)(np-1) -
+			     param->heatsrcs[i].posy, 2));
+
+	    if( dist <= param->heatsrcs[i].range )
+	    {
+		(param->u)[ j*np ]+=
+		    (param->heatsrcs[i].range-dist) /
+		    param->heatsrcs[i].range *
+		    param->heatsrcs[i].temp;
+	    }
+	}
+
 	/* rightmost column */
 	for( j=1; j<np-1; j++ )
 	{
 	    dist = sqrt( pow(1-param->heatsrcs[i].posx, 2)+
-			 pow((float)j/(float)(np-1) - 
-			     param->heatsrcs[i].posy, 2)); 
-	  
+			 pow((float)j/(float)(np-1) -
+			     param->heatsrcs[i].posy, 2));
+
 	    if( dist <= param->heatsrcs[i].range )
 	    {
 		(param->u)[ j*np+(np-1) ]+=
@@ -414,12 +421,12 @@ int finalize( algoparam_t *param )
  * and write the resulting image to file f
  */
 void write_image( FILE * f, float *u,
-		  unsigned sizex, unsigned sizey ) 
+		  unsigned sizex, unsigned sizey )
 {
     // RGB table
     unsigned char r[1024], g[1024], b[1024];
     int i, j, k;
-  
+
     float min, max;
 
     j=1023;
@@ -449,7 +456,7 @@ void write_image( FILE * f, float *u,
     min=DBL_MAX;
     max=-DBL_MAX;
 
-    // find minimum and maximum 
+    // find minimum and maximum
     for( i=0; i<sizey; i++ )
     {
 	for( j=0; j<sizex; j++ )
@@ -460,7 +467,7 @@ void write_image( FILE * f, float *u,
 		min=u[i*sizex+j];
 	}
     }
-  
+
 
     fprintf(f, "P3\n");
     fprintf(f, "%u %u\n", sizex, sizey);
@@ -502,7 +509,7 @@ int coarsen( float *uold, unsigned oldx, unsigned oldy ,
     }
 
     // NOTE: this only takes the top-left corner,
-    // and doesnt' do any real coarsening 
+    // and doesnt' do any real coarsening
     for( i=0; i<stopy-1; i++ )
     {
 	for( j=0; j<stopx-1; j++ )
@@ -537,9 +544,9 @@ int read_input( FILE *infile, algoparam_t *param )
   if( n!=1 )
     return 0;
 
-  (param->heatsrcs) = 
+  (param->heatsrcs) =
     (heatsrc_t*) malloc( sizeof(heatsrc_t) * (param->numsrcs) );
-  
+
   for( i=0; i<param->numsrcs; i++ )
     {
       fgets(buf, BUFSIZE, infile);
@@ -575,4 +582,3 @@ void print_params( algoparam_t *param )
 	     param->heatsrcs[i].temp );
     }
 }
-
