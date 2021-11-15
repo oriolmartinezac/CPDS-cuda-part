@@ -30,12 +30,7 @@ __global__ void gpu_Heat (float *h, float *g, int N) {
   /*Ejemplo internet*/
   unsigned int x = threadIdx.x + blockIdx.x*blockDim.x;
   unsigned int y = threadIdx.y + blockIdx.y*blockDim.y;
-  unsigned int left = y*N + x-1;
-  unsigned int right = y*N + x+1;
-  unsigned int top = (y-1)*N + x;
-  unsigned int bot = (y+1)*N + x;
-
-
+  unsigned int my_index = y*N +x;
 
 /*
   unsigned int bx = N/blockDim.x;
@@ -49,7 +44,13 @@ __global__ void gpu_Heat (float *h, float *g, int N) {
   unsigned int my_neighbour_top = (threadIdx.y-1)*N + threadIdx.x;
   unsigned int my_neighbour_bottom = (threadIdx.y+1)*N + threadIdx.x;
 */
- if()
-  if ((my_index < N*N) and (threadIdx.x > 0 and threadIdx.y > 0))
-    g[my_index] = 0.25*(h[my_neighbour_left]+h[my_neighbour_right]+h[my_neighbour_top]+h[my_neighbour_bottom]);
+
+  if ((my_index < N*N) and (x != 0 and y != 0) and (x < N and y < N))
+  {
+    unsigned int left = y*N + x-1;
+    unsigned int right = y*N + x+1;
+    unsigned int top = (y-1)*N + x;
+    unsigned int bot = (y+1)*N + x;
+    g[my_index] = 0.25*(h[left]+h[right]+h[top]+h[bot]);
+  }
 }
