@@ -166,10 +166,10 @@ int main( int argc, char *argv[] ) {
     iter = 0;
     float residual;
     while(1) {
-	residual = cpu_jacobi(param.u, param.uhelp, np, np);
-	float * tmp = param.u;
-	param.u = param.uhelp;
-	param.uhelp = tmp;
+      	residual = cpu_jacobi(param.u, param.uhelp, np, np);
+      	float * tmp = param.u;
+      	param.u = param.uhelp;
+      	param.uhelp = tmp;
 
         iter++;
 
@@ -216,8 +216,8 @@ int main( int argc, char *argv[] ) {
 
     // TODO: Allocation on GPU for matrices u and uhelp
     //...
-	cudaMalloc((void **)&dev_u, sizex*sizey*sizeof(float));
-	cudaMalloc((void **)&dev_uhelp, sizex*sizey*sizeof(float));
+	  cudaMalloc((void **)&dev_u, sizex*sizey*sizeof(float));
+	  cudaMalloc((void **)&dev_uhelp, sizex*sizey*sizeof(float));
 
     // TODO: Copy initial values in u and uhelp from host to GPU
     //...
@@ -228,14 +228,14 @@ int main( int argc, char *argv[] ) {
     while(1) {
         gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, np);
         cudaThreadSynchronize();                        // wait for all threads to complete
-//
+
         // TODO: residual is computed on host, we need to get from GPU values computed in u and uhelp
         //...
-	residual = cpu_residual (param.u, param.uhelp, np, np);
+      	residual = cpu_residual (param.u, param.uhelp, np, np);
 
-	float * tmp = dev_u;
-	dev_u = dev_uhelp;
-	dev_uhelp = tmp;
+      	float * tmp = dev_u;
+      	dev_u = dev_uhelp;
+      	dev_uhelp = tmp;
 
         iter++;
 
@@ -249,7 +249,6 @@ int main( int argc, char *argv[] ) {
     // TODO: get result matrix from GPU
     //...
     cudaMemcpy(u, dev_u, sizex*sizey*sizeof(float), cudaMemcpyDeviceToHost);
-    cudaMemcpy(uhelp, dev_uhelp, sizex*sizey*sizeof(float), cudaMemcpyDeviceToHost);
 
 
     // TODO: free memory used in GPU
