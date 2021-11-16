@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 
 <trace enabled="yes"
- home="/apps/CEPBATOOLS/extrae/latest/bullmpi/64"
+ home="/apps/CEPBATOOLS/extrae/latest/default/64"
  initial-mode="detail"
  type="paraver"
  xml-parser-id="Id: xml-parse.c 1318 2012-10-25 13:33:57Z harald $"

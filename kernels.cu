@@ -2,55 +2,20 @@
 #include <float.h>
 #include <cuda.h>
 
-__global__ void gpu_Heat (float *h, float *g, int N) {
+__global__ void gpu_Heat (float *dev_u, float *dev_uhelp, int N) {
 
 	// TODO: kernel computation
 	//...
-  //h = u
-  //g = uhelp
-  /*
-  nbx = NB;
-  bx = sizex/nbx;
-  nby = NB;
-  by = sizey/nby;
-  for (int ii=0; ii<nbx; ii++)
-      for (int jj=0; jj<nby; jj++)
-          for (int i=1+ii*bx; i<=min((ii+1)*bx, sizex-2); i++)
-              for (int j=1+jj*by; j<=min((jj+1)*by, sizey-2); j++) {
-            utmp[i*sizey+j]= 0.25 * (u[ i*sizey     + (j-1) ]+  // left
-             u[ i*sizey     + (j+1) ]+  // right
-                   u[ (i-1)*sizey + j     ]+  // top
-                   u[ (i+1)*sizey + j     ]); // bottom
-                diff = utmp[i*sizey+j] - u[i*sizey + j];
-                sum += diff * diff;
-        }
-  return(sum);
-  */
+  unsigned int x = threadIdx.x+1 + blockIdx.x*blockDim.x;
+  unsigned int y = threadIdx.y+1 + blockIdx.y*blockDim.y;
+  unsigned int my_index = y*N+x;
 
-  /*Ejemplo internet*/
-  unsigned int x = threadIdx.x + blockIdx.x*blockDim.x;
-  unsigned int y = threadIdx.y + blockIdx.y*blockDim.y;
-  unsigned int my_index = y*N +x;
-
-/*
-  unsigned int bx = N/blockDim.x;
-  unsigned int by = N/blockDim.y;
-
-  unsigned int my_indexcc = blockDim*blockIdx.x+threadIdx.x;
-  unsigned int my_indexc = threadIdx.y+blockDim.y*blockIdx.y + threadIdx.x+blockDim.x*blockIdx.x;
-  unsigned int my_index = threadIdx.y*N + threadIdx.x;
-  unsigned int my_neighbour_left = threadIdx.y*N + threadIdx.x-1;
-  unsigned int my_neighbour_right = threadIdx.y*N + threadIdx.x+1;
-  unsigned int my_neighbour_top = (threadIdx.y-1)*N + threadIdx.x;
-  unsigned int my_neighbour_bottom = (threadIdx.y+1)*N + threadIdx.x;
-*/
-
-  if ((my_index < N*N) and (x != 0 and y != 0) and (x < N and y < N))
+  if (x <= min((blockIdx.x+1)*blockDim.x, N-2) && y <= min((blockIdx.y+1)*blockDim.y, N-2))
   {
     unsigned int left = y*N + x-1;
     unsigned int right = y*N + x+1;
     unsigned int top = (y-1)*N + x;
     unsigned int bot = (y+1)*N + x;
-    g[my_index] = 0.25*(h[left]+h[right]+h[top]+h[bot]);
+    dev_uhelp[my_index] = 0.25*(dev_u[left]+dev_u[right]+dev_u[top]+dev_u[bot]);
   }
 }

@@ -1,5 +1,5 @@
-NVCC 	= /opt/cuda/4.1/bin/nvcc
-CUDAPATH = /opt/cuda/4.1
+NVCC 	= /opt/cuda/8.0/bin/nvcc
+CUDAPATH = /opt/cuda/8.0
 
 NVCCFLAGS = -I$(CUDAPATH)/include #--ptxas-options=-v
 LFLAGS = -L$(CUDAPATH)/lib64 -lcuda -lcudart -lm

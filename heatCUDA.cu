@@ -53,6 +53,14 @@ float cpu_residual (float *u, float *utmp, unsigned sizex, unsigned sizey)
     return(sum);
 }
 
+float patata(float *matrix, unsigned sizex, unsigned sizey)
+{
+  float sum=0.0;
+  for (int i=0;i<sizex*sizey;i++)
+    sum += matrix[i];
+  return sum;
+}
+
 float cpu_jacobi (float *u, float *utmp, unsigned sizex, unsigned sizey)
 {
     float diff, sum=0.0;
@@ -128,6 +136,7 @@ int main( int argc, char *argv[] ) {
     // full size (param.resolution are only the inner points)
     np = param.resolution + 2;
 
+
     int Grid_Dim, Block_Dim;	// Grid and Block structure values
     if (strcmp(argv[2], "-t")==0) {
             Block_Dim = atoi(argv[3]);
@@ -166,7 +175,18 @@ int main( int argc, char *argv[] ) {
     iter = 0;
     float residual;
     while(1) {
+
+        if (iter == 0)
+        {
+          fprintf(stdout, "NP, %u\n", np);
+          fprintf(stdout, "Sum1, %f\n", patata(param.u, np, np));
+        }
+
       	residual = cpu_jacobi(param.u, param.uhelp, np, np);
+
+        if (iter == 0)
+          fprintf(stdout, "Sum2, %f\n", patata(param.uhelp, np, np));
+
       	float * tmp = param.u;
       	param.u = param.uhelp;
       	param.uhelp = tmp;
@@ -226,6 +246,8 @@ int main( int argc, char *argv[] ) {
 
     iter = 0;
     while(1) {
+        if (iter == 0)
+          fprintf(stdout, "Sum1, %f\n", patata(param.u, np, np));
         gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, np);
         cudaThreadSynchronize(); // wait for all threads to complete
 
@@ -233,11 +255,18 @@ int main( int argc, char *argv[] ) {
         //...
         cudaMemcpy(param.u, dev_u, np*np*sizeof(float), cudaMemcpyDeviceToHost);
         cudaMemcpy(param.uhelp, dev_uhelp, np*np*sizeof(float), cudaMemcpyDeviceToHost);
+        if (iter == 0)
+          fprintf(stdout, "Sum2, %f\n", patata(param.uhelp, np, np));
+
         residual = cpu_residual (param.u, param.uhelp, np, np);
+
 
       	float * tmp = dev_u;
       	dev_u = dev_uhelp;
       	dev_uhelp = tmp;
+
+        //cudaMemcpy(dev_u, param.u, np*np*sizeof(float), cudaMemcpyHostToDevice);
+        //cudaMemcpy(dev_uhelp, param.uhelp, np*np*sizeof(float), cudaMemcpyHostToDevice);
 
         iter++;
 
