@@ -8,10 +8,9 @@ ALL	= heatCUDA
 all: $(ALL)
 
 kernels.o: kernels.cu
-	$(NVCC) -c -g $(NVCCFLAGS) $+ $(LFLAGS) -o $@
+	$(NVCC) -c -g $(NVCCFLAGS) $+ $(LFLAGS) -o $@ -gencode=arch=compute_30,code=sm_30
 
 heatCUDA: heatCUDA.cu kernels.o
-	$(NVCC) -g -O2 $(NVCCFLAGS) $+ $(LFLAGS) -o $@
-
+	$(NVCC) -g -O2 $(NVCCFLAGS) $+ $(LFLAGS) -o $@ -gencode=arch=compute_30,code=sm_30
 clean:
 	rm -fr $(ALL) *.o *.prv *.pcf *.row *.sym *.mpits set-0
