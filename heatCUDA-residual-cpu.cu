@@ -11,10 +11,6 @@ typedef struct {
     float temp;
 } heatsrc_t;
 
-//#define SIZEWRAP 256; //Constant as the size of the wraps
-
-__managed__ bool ez;
-
 typedef struct {
     unsigned maxiter;       // maximum number of iterations
     unsigned resolution;    // spatial resolution
@@ -39,48 +35,8 @@ void write_image( FILE * f, float *u,
 int coarsen(float *uold, unsigned oldx, unsigned oldy ,
 	    float *unew, unsigned newx, unsigned newy );
 
-__global__ void gpu_Heat (float *dev_u, float *dev_uhelp, float *dev_res, int N);
-__global__ void gpu_reduce(float *dev_res, float *dev_final_res);
-__global__ void gpu_reduce_2(float *dev_res, float *dev_final_res);
-__global__ void gpu_reduce_3(float *dev_res, float *dev_final_res);
-__global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int sizewrap);
-__global__ void gpu_res(float *dev_final_res, int np)
-{
-  float sum = 0.0;
 
-  for(int i = 0; i<np; i++)
-    sum += dev_final_res[i];
-
-  if (sum < 0.00005)
-    ez = false;
-};
-
-__global__ void gpu_res_try(float *dev_final_res, int np)
-{
-  float sum;
-
-  extern __shared__ float s_res[];
-
-  unsigned int tid = threadIdx.x;
-
-  s_res[tid] = dev_final_res[tid];
-  __syncthreads();
-
-  for (unsigned int s = np/2; s>0; s>>=1)
-  {
-    if(tid< s)
-    {
-      s_res[tid] += s_res[tid+s];
-      __syncthreads();
-    }
-  }
-
-  if(tid == 0)
-    sum = s_res[0];
-
-  if (sum < 0.00005)
-    ez = false;
-};
+__global__ void gpu_Heat (float *h, float *g, int N);
 
 #define NB 8
 #define min(a,b) ( ((a) < (b)) ? (a) : (b) )
@@ -180,6 +136,7 @@ int main( int argc, char *argv[] ) {
     // full size (param.resolution are only the inner points)
     np = param.resolution + 2;
 
+
     int Grid_Dim, Block_Dim;	// Grid and Block structure values
     if (strcmp(argv[2], "-t")==0) {
             Block_Dim = atoi(argv[3]);
@@ -276,63 +233,32 @@ int main( int argc, char *argv[] ) {
     cudaEventSynchronize( start );
 
     float *dev_u, *dev_uhelp;
-    float *dev_final_res;
-    float *dev_res;
-    float *res_cpu = (float*)calloc( sizeof(float), np);
-    //float *cpu_res_init = (float*)calloc( sizeof(float), np*np);
-    //for (int i=0; i<np*np; i++)
-    //    cpu_res_init[i] = 0.0;
-
-    //float res_cpu[np];
 
     // TODO: Allocation on GPU for matrices u and uhelp
     //...
 	  cudaMalloc((void **)&dev_u, np*np*sizeof(float));
 	  cudaMalloc((void **)&dev_uhelp, np*np*sizeof(float));
-    cudaMalloc((void **)&dev_res, np*np*sizeof(float));
-    cudaMalloc((void **)&dev_final_res, np*sizeof(float));
 
     // TODO: Copy initial values in u and uhelp from host to GPU
     //...
     cudaMemcpy(dev_u, param.u, np*np*sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(dev_uhelp, param.uhelp, np*np*sizeof(float), cudaMemcpyHostToDevice);
-    //cudaMemcpy(dev_res, cpu_res_init, np*np*sizeof(float), cudaMemcpyHostToDevice);
-
 
     iter = 0;
-
     while(1) {
-        //if (iter == 0)
-          //fprintf(stdout, "Sum1, %f\n", patata(param.u, np, np));
-        gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, dev_res, np);
+        if (iter == 0)
+          fprintf(stdout, "Sum1, %f\n", patata(param.u, np, np));
+        gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, np);
         cudaThreadSynchronize(); // wait for all threads to complete
-        //if (iter == 0)
-          //fprintf(stdout, "Sum2, %f\n", patata(param.uhelp, np, np));
-        //gpu_reduce<<<np, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-        //gpu_reduce_2<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-        //gpu_reduce_3<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-        gpu_reduce_4<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res, np);
-        //gpu_reduce_4<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-
-        cudaThreadSynchronize(); // wait for all threads to complete
-
-        cudaMemcpy(res_cpu, dev_final_res, np*sizeof(float), cudaMemcpyDeviceToHost);
-
-        residual=0.0;
-        for (int i = 0; i < np; i++)
-          residual += res_cpu[i];
-
-        //gpu_res<<<1, 1>>>(dev_final_res, np);
-        //gpu_res_try<<<1, np, np*sizeof(float)>>>(dev_final_res, np);
-        //cudaThreadSynchronize(); // wait for all threads to complete
-
 
         // TODO: residual is computed on host, we need to get from GPU values computed in u and uhelp
         //...
-        //cudaMemcpy(param.u, dev_u, np*np*sizeof(float), cudaMemcpyDeviceToHost);
-        //cudaMemcpy(param.uhelp, dev_uhelp, np*np*sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(param.u, dev_u, np*np*sizeof(float), cudaMemcpyDeviceToHost);
+        cudaMemcpy(param.uhelp, dev_uhelp, np*np*sizeof(float), cudaMemcpyDeviceToHost);
+        if (iter == 0)
+          fprintf(stdout, "Sum2, %f\n", patata(param.uhelp, np, np));
 
-        //residual = cpu_residual(param.u, param.uhelp, np, np);
+        residual = cpu_residual (param.u, param.uhelp, np, np);
 
       	float * tmp = dev_u;
       	dev_u = dev_uhelp;

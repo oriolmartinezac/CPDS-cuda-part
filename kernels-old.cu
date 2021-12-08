@@ -2,8 +2,6 @@
 #include <float.h>
 #include <cuda.h>
 
-//#define SIZEWRAP 256; //Constant as the size of the wraps
-
 __global__ void gpu_Heat(float *dev_u, float *dev_uhelp, float *dev_res, int N)
 {
 	// TODO: kernel computation
@@ -111,15 +109,6 @@ __device__ void warpReduce(volatile float *sdata, int tid){
   sdata[tid] += sdata[tid+1];
 }
 
-__device__ void warpReduce2(volatile float *sdata, unsigned int tid, unsigned int sizewrap){
-  if(sizewrap >= 64)sdata[tid] += sdata[tid+32];
-  if(sizewrap >= 32)sdata[tid] += sdata[tid+16];
-  if(sizewrap >= 16)sdata[tid] += sdata[tid+8];
-  if(sizewrap >= 8)sdata[tid] += sdata[tid+4];
-  if(sizewrap >= 4)sdata[tid] += sdata[tid+2];
-  if(sizewrap >= 2)sdata[tid] += sdata[tid+1];
-}
-
 __global__ void gpu_reduce_2(float *dev_res, float *dev_final_res)
 {
   extern __shared__ float s_res[];
@@ -170,108 +159,21 @@ __global__ void gpu_reduce_3(float *dev_res, float *dev_final_res)
 
 }
 
-__global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int sizewrap)
+__global__ void gpu_reduce_4(float *dev_res, float *dev_final_res)
 {
   extern __shared__ float s_res[];
 
+  unsigned int i = blockIdx.x *blockDim.x + threadIdx.x;
   unsigned int tid = threadIdx.x;
-  unsigned int i = blockIdx.x *(blockDim.x*2) + tid;
-
-  s_res[tid] = dev_res[i] + dev_res[i+blockDim.x];
-  __syncthreads();
-
-
-   if(sizewrap >= 512) {
-     if(tid < 256) {
-       s_res[tid] += s_res[tid+256];
-     }
-     __syncthreads();
-   }
-   if(sizewrap >= 256) {
-     if(tid < 128) {
-       s_res[tid] += s_res[tid+128];
-     }
-     __syncthreads();
-   }
-   if(sizewrap >= 128) {
-     if(tid < 64) {
-       s_res[tid] += s_res[tid+64];
-     }
-     __syncthreads();
-   }
-
-  if(tid < 32) warpReduce2(s_res, tid, sizewrap);
-
-  if(tid == 0) dev_final_res[blockIdx.x] = s_res[0];
-
-}
-
-__global__ void gpu_reduce_3_test(float *dev_res, float *dev_final_res, unsigned int sizewrap)
-{
-  extern __shared__ float s_res[];
-
-  unsigned int tid = threadIdx.x;
-  unsigned int i = blockIdx.x *(blockDim.x*2) + tid;
-
-  s_res[tid] = dev_res[i] + dev_res[i+blockDim.x];
-  __syncthreads();
-
-   if(sizewrap >= 512) {
-     if(tid < 256) {
-       s_res[tid] += s_res[tid+256];
-     }
-     __syncthreads();
-   }
-   if(sizewrap >= 256) {
-     if(tid < 128) {
-       s_res[tid] += s_res[tid+128];
-     }
-     __syncthreads();
-   }
-   if(sizewrap >= 128) {
-     if(tid < 64) {
-       s_res[tid] += s_res[tid+64];
-     }
-     __syncthreads();
-   }
-
-  if(tid < 32) warpReduce2(s_res, tid, sizewrap);
-
-  if(tid == 0) dev_final_res[blockIdx.x] = s_res[0];
-
-}
-/*
-template <unsigned int blockSize>
-__global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int n)
-{
-  extern __shared__ float s_res[];
-  unsigned int tid = threadIdx.x;
-  unsigned int i = blockIdx.x *(blockSize*2) + tid;
 
   s_res[tid] = dev_res[i];
   __syncthreads();
 
-  if (blockSize >= 512)
+  for (unsigned int s = blockDim.x/2; s>32; s>>=1)
   {
-    if (tid < 256)
+    if(tid< s)
     {
-      s_res[tid] += s_res[tid+256];
-      __syncthreads();
-    }
-  }
-  if (blockSize >= 256)
-  {
-    if (tid < 128)
-    {
-      s_res[tid] += s_res[tid+128];
-      __syncthreads();
-    }
-  }
-  if (blockSize >= 128)
-  {
-    if (tid < 64)
-    {
-      s_res[tid] += s_res[tid+64];
+      s_res[tid] += s_res[tid+s];
       __syncthreads();
     }
   }
@@ -279,5 +181,5 @@ __global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int 
   if(tid < 32) warpReduce(s_res, tid);
     //dev_final_res[blockIdx.x] = s_res[0];
   if (tid == 0) dev_final_res[blockIdx.x] = s_res[0];
+
 }
-*/
