@@ -44,6 +44,7 @@ __global__ void gpu_reduce(float *dev_res, float *dev_final_res);
 __global__ void gpu_reduce_2(float *dev_res, float *dev_final_res);
 __global__ void gpu_reduce_3(float *dev_res, float *dev_final_res);
 __global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int sizewrap);
+__global__ void gpu_reduce_5(float *dev_res, float *dev_final_res, unsigned int sizewrap, unsigned int n);
 __global__ void gpu_res(float *dev_final_res, int np)
 {
   float sum = 0.0;
@@ -300,19 +301,15 @@ int main( int argc, char *argv[] ) {
 
 
     iter = 0;
-
     while(1) {
-        //if (iter == 0)
-          //fprintf(stdout, "Sum1, %f\n", patata(param.u, np, np));
         gpu_Heat<<<Grid,Block>>>(dev_u, dev_uhelp, dev_res, np);
         cudaThreadSynchronize(); // wait for all threads to complete
-        //if (iter == 0)
-          //fprintf(stdout, "Sum2, %f\n", patata(param.uhelp, np, np));
-        //gpu_reduce<<<np, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-        //gpu_reduce_2<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-        //gpu_reduce_3<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res);
-        gpu_reduce_4<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res, np);
-        //gpu_reduce_4<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res);
+
+        gpu_reduce<<<np, np, np*sizeof(float)>>>(dev_res, dev_final_res); //PERFECT
+        //gpu_reduce_2<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res); //PERFECT
+        //gpu_reduce_3<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res); //PERFECT
+        //gpu_reduce_4<<<np/2, np, np*sizeof(float)>>>(dev_res, dev_final_res, np); //YES CORRECT I THINK
+        //gpu_reduce_5<<<np/4, np, np*sizeof(float)>>>(dev_res, dev_final_res, np/2, np*np); //PERFECT
 
         cudaThreadSynchronize(); // wait for all threads to complete
 

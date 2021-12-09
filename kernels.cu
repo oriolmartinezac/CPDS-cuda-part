@@ -8,7 +8,6 @@ __global__ void gpu_Heat(float *dev_u, float *dev_uhelp, float *dev_res, int N)
 {
 	// TODO: kernel computation
 	//...
-
   float partial_res;
 
   unsigned int x = threadIdx.x+1 + blockIdx.x*blockDim.x;
@@ -150,7 +149,9 @@ __global__ void gpu_reduce_3(float *dev_res, float *dev_final_res)
 
   unsigned int tid = threadIdx.x;
   unsigned int i = blockIdx.x *(blockDim.x*2) + tid;
+  //unsigned int i = blockIdx.x*blockDim.x + tid;
 
+  //s_res[tid] = dev_res[i];
   s_res[tid] = dev_res[i] + dev_res[i+blockDim.x];
   __syncthreads();
 
@@ -161,10 +162,10 @@ __global__ void gpu_reduce_3(float *dev_res, float *dev_final_res)
       s_res[tid] += s_res[tid+s];
       __syncthreads();
     }
+
   }
 
   if(tid < 32) warpReduce(s_res, tid);
-    //dev_final_res[blockIdx.x] = s_res[0];
 
   if (tid == 0) dev_final_res[blockIdx.x] = s_res[0];
 
@@ -175,12 +176,18 @@ __global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int 
   extern __shared__ float s_res[];
 
   unsigned int tid = threadIdx.x;
-  unsigned int i = blockIdx.x *(blockDim.x*2) + tid;
+  unsigned int i = blockIdx.x *(sizewrap*2) + tid;
 
-  s_res[tid] = dev_res[i] + dev_res[i+blockDim.x];
+  //s_res[tid] = dev_res[i] + dev_res[i+blockDim.x];
+  s_res[tid] = dev_res[i] + dev_res[i+sizewrap/2];
   __syncthreads();
-
-
+/*
+  for (unsigned int s=blockDim.x/2; s>sizewrap; s>>=1) {
+    if (tid < s)
+    s_res[tid] += s_res[tid + s];
+    __syncthreads();
+  }
+*/
    if(sizewrap >= 512) {
      if(tid < 256) {
        s_res[tid] += s_res[tid+256];
@@ -206,14 +213,20 @@ __global__ void gpu_reduce_4(float *dev_res, float *dev_final_res, unsigned int 
 
 }
 
-__global__ void gpu_reduce_3_test(float *dev_res, float *dev_final_res, unsigned int sizewrap)
+__global__ void gpu_reduce_5(float *dev_res, float *dev_final_res, unsigned int sizewrap, unsigned int n)
 {
   extern __shared__ float s_res[];
 
   unsigned int tid = threadIdx.x;
-  unsigned int i = blockIdx.x *(blockDim.x*2) + tid;
+  unsigned int i = blockIdx.x *(sizewrap*2) + tid;
+  unsigned int gridSize = sizewrap*2*gridDim.x; //gridDim = 64
 
-  s_res[tid] = dev_res[i] + dev_res[i+blockDim.x];
+  s_res[tid] = 0;
+
+  while(i < n) {
+    s_res[tid] += dev_res[i] + dev_res[i+sizewrap];
+    i += gridSize;
+  }
   __syncthreads();
 
    if(sizewrap >= 512) {
