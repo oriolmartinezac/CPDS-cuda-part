@@ -354,8 +354,10 @@ int main( int argc, char *argv[] ) {
 
     // TODO: free memory used in GPU
     //...
-    //cudaFree(*dev_u);
-    //cudaFree(*dev_uhelp);
+    cudaFree(dev_u);
+    cudaFree(dev_uhelp);
+    cudaFree(dev_res);
+    cudaFree(dev_final_res);
 
     cudaEventRecord( stop, 0 );     // instrument code to measue end time
     cudaEventSynchronize( stop );
